@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ポーカー練習場 — オフライン Texas Hold'em</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">♠♥ ポーカー練習場 <span class="sub">オフライン Texas Hold'em</span></div>
+    <nav class="tabs">
+      <button id="tab-game" class="tab active">🎮 CPU対戦</button>
+      <button id="tab-strategy" class="tab">📘 戦略学習</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ================= ゲームモード ================= -->
+    <section id="view-game" class="mode-view">
+
+      <!-- セットアップ -->
+      <div id="game-setup" class="setup-panel">
+        <h2>CPU対戦の設定</h2>
+        <p class="desc">CPUは手札の勝率(モンテカルロ推定)・ポットオッズ・ポジション・性格(プレイスタイル)をもとに判断します。</p>
+        <div class="setup-grid">
+          <label>対戦相手の人数
+            <select id="cfg-opponents">
+              <option value="1">1人（ヘッズアップ）</option>
+              <option value="2">2人</option>
+              <option value="3" selected>3人</option>
+              <option value="5">5人</option>
+            </select>
+          </label>
+          <label>開始スタック
+            <select id="cfg-stack">
+              <option value="500">500</option>
+              <option value="1000" selected>1000</option>
+              <option value="2000">2000</option>
+            </select>
+          </label>
+          <label>ビッグブラインド
+            <select id="cfg-bb">
+              <option value="10" selected>10 (SB 5)</option>
+              <option value="20">20 (SB 10)</option>
+              <option value="50">50 (SB 25)</option>
+            </select>
+          </label>
+          <label>演出スピード
+            <input type="range" id="cfg-speed" min="200" max="1500" value="750" step="50">
+            <span id="speed-label">750ms</span>
+          </label>
+        </div>
+        <button id="btn-start-game" class="primary big">ゲーム開始 ▶</button>
+      </div>
+
+      <!-- テーブル -->
+      <div id="table-area" class="hidden">
+        <div id="game-over-banner" class="banner hidden"></div>
+        <div class="table-wrap">
+          <div class="poker-table">
+            <div class="table-center">
+              <div id="street-display" class="street"></div>
+              <div id="community-cards" class="community"></div>
+              <div id="pot-display" class="pot">ポット: 0</div>
+            </div>
+            <div id="seats"></div>
+          </div>
+        </div>
+
+        <!-- 操作 -->
+        <div id="action-controls" class="action-controls hidden">
+          <div id="equity-hint" class="equity-hint"></div>
+          <div class="action-buttons">
+            <button id="btn-fold" class="danger">フォールド</button>
+            <button id="btn-checkcall" class="neutral">チェック</button>
+            <button id="btn-raise" class="primary">レイズ</button>
+          </div>
+          <div class="raise-row">
+            <div id="raise-presets" class="presets">
+              <button id="preset-half" class="mini">½ポット</button>
+              <button id="preset-pot" class="mini">ポット</button>
+              <button id="preset-allin" class="mini">オールイン</button>
+            </div>
+            <input type="range" id="raise-slider" class="raise-slider">
+            <span class="raise-amount-label">→ <span id="raise-amount">0</span></span>
+          </div>
+        </div>
+
+        <div id="next-hand-controls" class="next-hand hidden">
+          <button id="btn-next-hand" class="primary">次のハンドへ ▶</button>
+          <button id="btn-back-setup" class="neutral">設定に戻る</button>
+        </div>
+
+        <div class="log-wrap">
+          <div class="log-title">ハンド履歴</div>
+          <div id="hand-log" class="hand-log"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 戦略学習モード ================= -->
+    <section id="view-strategy" class="mode-view hidden">
+      <div class="strategy-layout">
+        <!-- レッスン -->
+        <div class="lesson-panel">
+          <h2>📖 最新戦略レッスン</h2>
+          <div id="lesson-list" class="lesson-list"></div>
+        </div>
+        <div class="lesson-content-wrap">
+          <div id="lesson-content" class="lesson-content"></div>
+
+          <!-- トレーナー -->
+          <div class="trainers">
+            <div class="trainer-card">
+              <h3>🎯 プリフロップ・レンジトレーナー</h3>
+              <p class="trainer-desc">配られた手札とポジションを見て、オープン(レイズ)かフォールドかを判断しよう。</p>
+              <div id="range-position" class="range-pos"></div>
+              <div id="range-cards" class="range-cards"></div>
+              <div class="trainer-buttons">
+                <button id="range-open" class="primary">オープン</button>
+                <button id="range-fold" class="danger">フォールド</button>
+              </div>
+              <div id="range-feedback" class="feedback"></div>
+              <div id="range-score" class="score">正答 0 / 0</div>
+            </div>
+
+            <div class="trainer-card">
+              <h3>🧮 ポットオッズ・クイズ</h3>
+              <p class="trainer-desc">ポットオッズと4-2の法則を使い、ドローでコールが正当化されるか判断しよう。</p>
+              <div id="pot-question" class="pot-question"></div>
+              <div class="trainer-buttons">
+                <button id="pot-call" class="primary">コール</button>
+                <button id="pot-fold" class="danger">フォールド</button>
+              </div>
+              <div id="pot-feedback" class="feedback"></div>
+              <div id="pot-score" class="score">正答 0 / 0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">完全オフラインで動作します。データは送信されません。 ♠♥♦♣</footer>
+
+  <script src="js/cards.js"></script>
+  <script src="js/evaluator.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/strategy.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

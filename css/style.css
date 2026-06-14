@@ -1,0 +1,172 @@
+/* style.css — ポーカー練習場 */
+:root {
+  --felt: #0b6e3b;
+  --felt-dark: #075029;
+  --gold: #e7c66b;
+  --bg: #14181f;
+  --panel: #1d242e;
+  --panel-light: #283140;
+  --text: #e9eef5;
+  --muted: #9fb0c3;
+  --accent: #3a86ff;
+  --danger: #e5484d;
+  --good: #2bb673;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Segoe UI", system-ui, sans-serif;
+}
+
+/* ===== トップバー ===== */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: linear-gradient(90deg, #1a2230, #0f141c);
+  border-bottom: 2px solid var(--gold);
+}
+.brand { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+.brand .sub { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 8px; }
+.tabs { display: flex; gap: 8px; }
+.tab {
+  background: var(--panel); color: var(--muted);
+  border: 1px solid #2c3848; padding: 9px 16px; border-radius: 999px;
+  cursor: pointer; font-size: 14px; font-weight: 600; transition: .15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { background: var(--gold); color: #1a1300; border-color: var(--gold); }
+
+main { max-width: 1200px; margin: 0 auto; padding: 18px; }
+.hidden { display: none !important; }
+
+/* ===== ボタン共通 ===== */
+button { font-family: inherit; }
+.primary { background: var(--accent); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 700; }
+.primary:hover { filter: brightness(1.1); }
+.danger { background: var(--danger); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 700; }
+.neutral { background: var(--panel-light); color: var(--text); border: 1px solid #3a4658; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 700; }
+.primary:disabled { opacity: .5; cursor: not-allowed; }
+.big { font-size: 17px; padding: 13px 28px; margin-top: 8px; }
+
+/* ===== セットアップ ===== */
+.setup-panel { background: var(--panel); padding: 26px; border-radius: var(--radius); max-width: 760px; margin: 20px auto; }
+.setup-panel h2 { margin-top: 0; }
+.desc { color: var(--muted); font-size: 14px; }
+.setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 20px 0; }
+.setup-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
+.setup-grid select, .setup-grid input[type=range] { padding: 8px; border-radius: 6px; background: var(--panel-light); color: var(--text); border: 1px solid #3a4658; }
+
+/* ===== テーブル ===== */
+.table-wrap { display: flex; justify-content: center; margin: 10px 0; }
+.poker-table {
+  position: relative;
+  width: 100%; max-width: 860px; aspect-ratio: 16 / 9;
+  background: radial-gradient(ellipse at center, var(--felt), var(--felt-dark));
+  border: 14px solid #3a2a18;
+  border-radius: 48% / 46%;
+  box-shadow: inset 0 0 60px rgba(0,0,0,.5), 0 10px 30px rgba(0,0,0,.5);
+}
+.table-center {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  text-align: center; width: 60%;
+}
+.street { color: var(--gold); font-size: 13px; letter-spacing: 2px; margin-bottom: 6px; text-transform: uppercase; }
+.community { display: flex; gap: 6px; justify-content: center; min-height: 64px; }
+.pot { margin-top: 10px; font-weight: 700; background: rgba(0,0,0,.35); display: inline-block; padding: 5px 14px; border-radius: 999px; font-size: 14px; }
+
+/* ===== カード ===== */
+.card {
+  width: 40px; height: 56px; background: #fff; border-radius: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-weight: 800; box-shadow: 0 2px 5px rgba(0,0,0,.4); position: relative;
+}
+.card.large { width: 52px; height: 72px; }
+.card.red { color: #d11; }
+.card.black { color: #111; }
+.card .card-rank { font-size: 18px; line-height: 1; }
+.card.large .card-rank { font-size: 24px; }
+.card .card-suit { font-size: 16px; line-height: 1; }
+.card.large .card-suit { font-size: 22px; }
+.card.back { background: repeating-linear-gradient(45deg, #2a4a8a, #2a4a8a 6px, #1f3a72 6px, #1f3a72 12px); border: 2px solid #fff2; }
+.card.placeholder { background: rgba(255,255,255,.06); box-shadow: none; border: 1px dashed #ffffff22; }
+
+/* ===== 席 ===== */
+#seats { position: absolute; inset: 0; }
+.seat {
+  position: absolute; width: 132px;
+  background: rgba(10,16,24,.82); border: 1px solid #2c3848; border-radius: 10px;
+  padding: 6px; text-align: center; transition: .2s;
+}
+.seat.acting { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 18px var(--gold); }
+.seat.folded { opacity: .42; }
+.seat.out { opacity: .25; filter: grayscale(1); }
+.hole-cards { display: flex; gap: 4px; justify-content: center; min-height: 56px; margin-bottom: 4px; }
+.seat-info { font-size: 12px; }
+.seat-name { font-weight: 700; }
+.seat-stack { color: var(--gold); }
+.seat-bet { color: var(--accent); font-size: 11px; }
+.seat-last { color: var(--muted); font-size: 11px; font-style: italic; }
+.style-tag { font-size: 10px; background: #2c3848; padding: 1px 5px; border-radius: 4px; color: var(--muted); }
+.dealer-btn { display: inline-block; background: #fff; color: #111; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; line-height: 16px; font-weight: 800; }
+
+/* ===== アクション操作 ===== */
+.action-controls { background: var(--panel); border-radius: var(--radius); padding: 14px; margin-top: 14px; }
+.equity-hint { text-align: center; color: var(--gold); font-size: 13px; margin-bottom: 10px; }
+.action-buttons { display: flex; gap: 10px; justify-content: center; }
+.action-buttons button { min-width: 130px; font-size: 15px; }
+.raise-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; justify-content: center; flex-wrap: wrap; }
+.presets { display: flex; gap: 6px; }
+.mini { background: var(--panel-light); color: var(--text); border: 1px solid #3a4658; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.raise-slider { width: 280px; }
+.raise-amount-label { color: var(--gold); font-weight: 700; min-width: 70px; }
+
+.next-hand { display: flex; gap: 12px; justify-content: center; margin-top: 14px; }
+
+.banner { text-align: center; background: var(--gold); color: #1a1300; font-weight: 800; padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 16px; }
+
+/* ===== ログ ===== */
+.log-wrap { margin-top: 16px; background: var(--panel); border-radius: var(--radius); padding: 12px; }
+.log-title { font-weight: 700; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.hand-log { max-height: 180px; overflow-y: auto; font-size: 13px; line-height: 1.6; font-family: ui-monospace, monospace; }
+.log-line { border-bottom: 1px solid #ffffff0d; padding: 2px 0; }
+
+/* ===== 戦略モード ===== */
+.strategy-layout { display: grid; grid-template-columns: 240px 1fr; gap: 18px; }
+.lesson-panel h2 { font-size: 18px; }
+.lesson-list { display: flex; flex-direction: column; gap: 6px; }
+.lesson-item { text-align: left; background: var(--panel); color: var(--text); border: 1px solid #2c3848; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.lesson-item:hover { border-color: var(--gold); }
+.lesson-item.active { background: var(--gold); color: #1a1300; font-weight: 700; }
+.lesson-content { background: var(--panel); border-radius: var(--radius); padding: 22px; }
+.lesson-content h3 { margin-top: 0; color: var(--gold); }
+.lesson-content p { line-height: 1.8; color: #d6deea; }
+
+.trainers { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.trainer-card { background: var(--panel); border-radius: var(--radius); padding: 18px; }
+.trainer-card h3 { margin-top: 0; }
+.trainer-desc { color: var(--muted); font-size: 13px; }
+.range-pos { font-weight: 700; color: var(--gold); margin: 8px 0; }
+.range-cards { display: flex; gap: 8px; margin: 12px 0; }
+.trainer-buttons { display: flex; gap: 10px; margin: 10px 0; }
+.trainer-buttons button { flex: 1; }
+.pot-question { background: var(--panel-light); padding: 12px; border-radius: 8px; line-height: 1.7; font-size: 14px; margin: 10px 0; }
+.feedback { min-height: 22px; font-size: 13px; line-height: 1.6; }
+.feedback.good { color: var(--good); }
+.feedback.bad { color: var(--danger); }
+.score { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+.footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px; }
+
+/* ===== レスポンシブ ===== */
+@media (max-width: 820px) {
+  .setup-grid { grid-template-columns: 1fr; }
+  .strategy-layout { grid-template-columns: 1fr; }
+  .trainers { grid-template-columns: 1fr; }
+  .seat { width: 104px; font-size: 11px; }
+  .card { width: 30px; height: 42px; }
+  .card .card-rank { font-size: 14px; }
+}
