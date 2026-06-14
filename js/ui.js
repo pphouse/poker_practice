@@ -44,6 +44,17 @@
       this.el('game-setup').classList.add('hidden');
       this.el('hand-log').innerHTML = '';
       this.renderTable(this.snapshot(this.game, null));
+
+      // 画面回転・リサイズで席配置を組み直す（重複登録は防ぐ）
+      if (!this._resizeBound) {
+        this._resizeBound = true;
+        let rt;
+        window.addEventListener('resize', () => {
+          clearTimeout(rt);
+          rt = setTimeout(() => { if (this.lastSnap) this.renderTable(this.lastSnap); }, 150);
+        });
+      }
+
       this.game.startHand();
     },
 
@@ -162,6 +173,7 @@
 
     // ===== テーブル描画 =====
     renderTable(snap) {
+      this.lastSnap = snap; // リサイズ/回転時の再描画用
       // ボード
       const boardEl = this.el('community-cards');
       boardEl.innerHTML = '';
@@ -183,6 +195,7 @@
         if (p.acting) seat.classList.add('acting');
         if (p.folded) seat.classList.add('folded');
         if (p.out) seat.classList.add('out');
+        if (p.isHuman) seat.classList.add('you');
 
         const dealerBadge = (snap.dealer === p.id) ? '<span class="dealer-btn">D</span>' : '';
         const styleName = p.isHuman ? '' :
@@ -219,7 +232,10 @@
     seatPosition(i, n) {
       // i=0(自分)を下中央に、その他を時計回りに配置
       const angle = (Math.PI / 2) + (i / n) * 2 * Math.PI; // 下から開始
-      const rx = 42, ry = 40;
+      // スマホ（縦長卓）では席を外周へ寄せ、中央のボードと重ならないようにする
+      const mobile = window.innerWidth <= 640;
+      const rx = mobile ? 46 : 42;
+      const ry = mobile ? 40 : 40;
       const cx = 50, cy = 50;
       const x = cx + rx * Math.cos(angle);
       const y = cy + ry * Math.sin(angle);
