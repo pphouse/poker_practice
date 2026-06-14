@@ -113,6 +113,8 @@
           this.hideFastForward();
           this.fastForward = false;
           this.humanFolded = false;
+          this.heroPrevCat = -1;
+          { const fx = this.el('fx-layer'); if (fx) fx.innerHTML = ''; }
           this.renderTable(snap);
           this.scheduleNext(this.speed);
           break;
@@ -129,11 +131,23 @@
           this.scheduleNext(this.speed);
           break;
         }
-        case 'board':
+        case 'board': {
           this.log(`【${this.streetJa(e.street)}】 ${e.board.map(this.cardStr).join(' ')}`);
           this.renderTable(snap);
+          // 自分の役が新しく完成したら演出（ツーペア以上）
+          const hero = snap.players.find((p) => p.isHuman);
+          if (hero && !hero.folded && hero.hole.length === 2) {
+            const cat = this.evalCategory(hero.hole, snap.board);
+            const C = window.Poker.CATEGORY;
+            if (cat > this.heroPrevCat && cat >= C.TWO_PAIR) {
+              const name = window.Poker.CATEGORY_NAME_JA[cat];
+              this.showHandFx(`${name}！`, '役が完成', cat);
+            }
+            this.heroPrevCat = Math.max(this.heroPrevCat, cat);
+          }
           this.scheduleNext(this.speed + 200);
           break;
+        }
         case 'awaitHuman':
           this.renderTable(snap);
           this.showControls(e);
@@ -209,6 +223,7 @@
       snap.players.forEach((p, i) => {
         const seat = document.createElement('div');
         seat.className = 'seat';
+        seat.dataset.id = p.id;
         seat.style.cssText = this.seatPosition(i, n);
         if (p.acting) seat.classList.add('acting');
         if (p.folded) seat.classList.add('folded');
@@ -270,8 +285,10 @@
           seat.appendChild(chip);
         }
 
-        // 自分の現在の役（ボードと合わせた最強ハンド）
-        if (p.isHuman && !p.folded && p.hole.length === 2) {
+        // 現在の役名（自分は常に / 相手はショーダウンで公開時）
+        const rankVisible = !p.folded && !p.out && p.hole.length === 2 &&
+          (p.isHuman || ((snap.reveal || this.revealAll) && snap.board.length >= 3));
+        if (rankVisible) {
           const rank = this.heroHandName(p.hole, snap.board);
           if (rank) {
             const hr = document.createElement('div');
@@ -305,6 +322,53 @@
         if (cards.length < 2) return '';
         return evaluate(cards).name;
       } catch (e) { return ''; }
+    },
+
+    // 手札+ボードの役カテゴリ（数値）。評価不可なら -1。
+    evalCategory(hole, board) {
+      try {
+        const { Card, evaluate } = window.Poker;
+        const cards = [...hole, ...board].map((c) => new Card(c.rank, c.suit));
+        if (cards.length < 2) return -1;
+        return evaluate(cards).category;
+      } catch (e) { return -1; }
+    },
+
+    // カテゴリ→演出用CSSクラス
+    fxClassFor(category) {
+      const C = window.Poker.CATEGORY;
+      return {
+        [C.TWO_PAIR]: 'cat-twopair',
+        [C.TRIPS]: 'cat-trips',
+        [C.STRAIGHT]: 'cat-straight',
+        [C.FLUSH]: 'cat-flush',
+        [C.FULL_HOUSE]: 'cat-fullhouse',
+        [C.QUADS]: 'cat-quads',
+        [C.STRAIGHT_FLUSH]: 'cat-straightflush',
+      }[category] || 'cat-default';
+    },
+
+    // 役成立の演出を中央に表示
+    showHandFx(text, sub, category) {
+      const layer = this.el('fx-layer');
+      if (!layer) return;
+      const burst = document.createElement('div');
+      burst.className = 'fx-burst ' + this.fxClassFor(category);
+      burst.innerHTML = `<span class="fx-main">${text}</span>` + (sub ? `<span class="fx-sub">${sub}</span>` : '');
+      layer.appendChild(burst);
+      // きらめき
+      for (let i = 0; i < 8; i++) {
+        const s = document.createElement('span');
+        s.className = 'fx-spark';
+        s.textContent = category >= window.Poker.CATEGORY.STRAIGHT ? '✨' : '●';
+        s.style.left = (38 + Math.random() * 24) + '%';
+        s.style.top = (34 + Math.random() * 18) + '%';
+        s.style.setProperty('--dx', (Math.random() * 160 - 80) + 'px');
+        s.style.setProperty('--dy', (Math.random() * 120 - 70) + 'px');
+        s.style.animationDelay = (Math.random() * 0.15) + 's';
+        layer.appendChild(s);
+      }
+      setTimeout(() => { layer.innerHTML = ''; }, 2000);
     },
 
     // 円卓上の座席配置（CSS の絶対座標）
@@ -455,6 +519,32 @@
           if (ev) this.log(`　${p.name}: ${ev.name}`);
         }
       }
+
+      // 勝者の役を中央で演出 + 勝者席をハイライト
+      let best = null;
+      for (const r of results) {
+        if (r.hand && (!best || r.hand.category > best.hand.category)) best = r;
+      }
+      if (best && best.hand) {
+        const names = best.winners.map((id) => this.game.players[id].name).join('・');
+        this.showHandFx(`${best.hand.name}！`, `${names} の勝ち`, best.hand.category);
+      }
+      // 勝者席に王冠＋金枠
+      const winnerIds = new Set();
+      results.forEach((r) => r.winners.forEach((id) => winnerIds.add(id)));
+      winnerIds.forEach((id) => {
+        const seatEl = this.el('seats').querySelector(`.seat[data-id="${id}"]`);
+        if (seatEl) {
+          seatEl.classList.add('winner-seat');
+          const av = seatEl.querySelector('.avatar');
+          if (av && !av.querySelector('.crown')) {
+            const crown = document.createElement('span');
+            crown.className = 'crown';
+            crown.textContent = '👑';
+            av.appendChild(crown);
+          }
+        }
+      });
     },
 
     onHandComplete(e) {
