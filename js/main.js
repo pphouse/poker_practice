@@ -20,8 +20,9 @@
       const startStack = parseInt(el('cfg-stack').value, 10);
       const bigBlind = parseInt(el('cfg-bb').value, 10);
       const smallBlind = Math.max(1, Math.floor(bigBlind / 2));
+      const autoFF = el('cfg-autoff').checked;
       el('game-over-banner').classList.add('hidden');
-      UI.startGame({ opponents, startStack, smallBlind, bigBlind });
+      UI.startGame({ opponents, startStack, smallBlind, bigBlind, autoFF });
     });
 
     el('btn-fold');

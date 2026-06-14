@@ -51,6 +51,10 @@
             <span id="speed-label">750ms</span>
           </label>
         </div>
+        <label class="check-row">
+          <input type="checkbox" id="cfg-autoff">
+          自分がフォールドしたら自動で早送りする
+        </label>
         <button id="btn-start-game" class="primary big">ゲーム開始 ▶</button>
       </div>
 
@@ -85,6 +89,11 @@
             <input type="range" id="raise-slider" class="raise-slider">
             <span class="raise-amount-label">→ <span id="raise-amount">0</span></span>
           </div>
+        </div>
+
+        <div id="ff-controls" class="ff-controls hidden">
+          <span class="ff-note">フォールドしました</span>
+          <button id="btn-fastforward" class="primary">⏩ 結果まで早送り</button>
         </div>
 
         <div id="next-hand-controls" class="next-hand hidden">

@@ -21,6 +21,7 @@
       this.betThisStreet = 0;   // 現ストリートでの拠出額
       this.totalBet = 0;        // ハンド全体での拠出額（サイドポット用）
       this.lastAction = '';
+      this.lastActionType = ''; // fold/check/call/raise/allin/blind（吹き出しの色分け用）
     }
     get inHand() {
       return !this.folded && !this.out;
@@ -96,6 +97,7 @@
         p.betThisStreet = 0;
         p.totalBet = 0;
         p.lastAction = '';
+        p.lastActionType = '';
       }
 
       // ボタン移動
@@ -137,6 +139,7 @@
       player.totalBet += pay;
       if (player.stack === 0) player.allIn = true;
       player.lastAction = label;
+      player.lastActionType = 'blind';
     }
 
     // ストリートのアクション順を組み立て、最初のプレイヤーへ
@@ -260,10 +263,12 @@
         // チェックできるなら fold ではなく check 扱い（誤操作防止）
         if (toCall === 0) {
           player.lastAction = 'チェック';
+          player.lastActionType = 'check';
           this.emit('action', { player, action: 'check', amount: 0 });
         } else {
           player.folded = true;
           player.lastAction = 'フォールド';
+          player.lastActionType = 'fold';
           this.emit('action', { player, action: 'fold', amount: 0 });
         }
       } else if (action === 'check') {
@@ -272,6 +277,7 @@
           return this.applyAction(player, 'call', toCall, toCall);
         }
         player.lastAction = 'チェック';
+        player.lastActionType = 'check';
         this.emit('action', { player, action: 'check', amount: 0 });
       } else if (action === 'call') {
         const pay = Math.min(toCall, player.stack);
@@ -280,6 +286,7 @@
         player.totalBet += pay;
         if (player.stack === 0) player.allIn = true;
         player.lastAction = pay > 0 ? `コール ${pay}` : 'チェック';
+        player.lastActionType = player.allIn ? 'allin' : (pay > 0 ? 'call' : 'check');
         this.emit('action', { player, action: 'call', amount: pay });
       } else if (action === 'raise') {
         // amount は「合計のベット額（このストリートで到達する額）」として解釈
@@ -300,6 +307,7 @@
         this.currentBet = Math.max(this.currentBet, target);
         this.lastAggressor = player;
         player.lastAction = player.allIn ? `オールイン ${target}` : `レイズ ${target}`;
+        player.lastActionType = player.allIn ? 'allin' : 'raise';
 
         // レイズが入ったので、他の全員に再アクション権が戻る
         this.reopenAction(player);
@@ -325,7 +333,11 @@
 
     advanceStreet() {
       // ストリート終了 -> ベットをポットへ集約（サイドポット計算は最後にまとめて）
-      for (const p of this.players) p.betThisStreet = 0;
+      // 吹き出しは新ストリートの行動を示すため一旦クリア（フォールド表示は維持）
+      for (const p of this.players) {
+        p.betThisStreet = 0;
+        if (!p.folded) { p.lastAction = ''; p.lastActionType = ''; }
+      }
       this.currentBet = 0;
       this.minRaise = this.bigBlind;
       this.streetActedSet = new Set();

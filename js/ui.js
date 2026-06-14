@@ -18,6 +18,9 @@
     // ===== ゲーム開始 =====
     startGame(config) {
       this.config = config;
+      this.autoFF = !!config.autoFF;
+      this.fastForward = false;
+      this.humanFolded = false;
       this.revealAll = false;
       this.queue = [];
       this.animating = false;
@@ -81,6 +84,7 @@
           id: p.id, name: p.name, stack: p.stack, isHuman: p.isHuman,
           style: p.style, folded: p.folded, allIn: p.allIn, out: p.out,
           betThisStreet: p.betThisStreet, lastAction: p.lastAction,
+          lastActionType: p.lastActionType,
           hole: p.hole.map((c) => ({ rank: c.rank, suit: c.suit })),
           acting: game.actingPlayer && game.actingPlayer.id === p.id,
         })),
@@ -95,8 +99,10 @@
       this.handleEvent(e, snap);
     },
 
-    scheduleNext(delay) {
-      setTimeout(() => this.playNext(), delay);
+    // force=true の重要イベントは早送り中でも一定時間見せる
+    scheduleNext(delay, force) {
+      const d = (this.fastForward && !force) ? 50 : delay;
+      setTimeout(() => this.playNext(), d);
     },
 
     handleEvent(e, snap) {
@@ -104,6 +110,9 @@
         case 'handStart':
           this.log(`--- ハンド #${e.game.handNo} 開始 ---`);
           this.hideControls();
+          this.hideFastForward();
+          this.fastForward = false;
+          this.humanFolded = false;
           this.renderTable(snap);
           this.scheduleNext(this.speed);
           break;
@@ -111,6 +120,12 @@
           const verb = this.actionLabel(e.action, e.amount);
           this.log(`${e.player.name}: ${verb}`);
           this.renderTable(snap);
+          // 自分がフォールドしたら早送りを案内（自動なら即適用）
+          if (e.player.isHuman && e.action === 'fold') {
+            this.humanFolded = true;
+            if (this.autoFF) this.fastForward = true;
+            else this.showFastForward();
+          }
           this.scheduleNext(this.speed);
           break;
         }
@@ -132,16 +147,19 @@
           this.scheduleNext(this.speed);
           break;
         case 'showdown':
+          this.hideFastForward();
           this.revealAll = true;
           this.renderShowdown(e, snap);
-          this.scheduleNext(this.speed + 1400);
+          this.scheduleNext(this.speed + 1400, true); // 結果は早送り中でも見せる
           break;
         case 'handWonNoShowdown':
+          this.hideFastForward();
           this.log(`${e.winner.name} がポット ${e.amount} を獲得（ショーダウンなし）`);
           this.renderTable(snap);
-          this.scheduleNext(this.speed + 800);
+          this.scheduleNext(this.speed + 800, true);
           break;
         case 'handComplete':
+          this.hideFastForward();
           this.renderTable(snap);
           this.onHandComplete(e);
           this.scheduleNext(this.speed);
@@ -197,35 +215,96 @@
         if (p.out) seat.classList.add('out');
         if (p.isHuman) seat.classList.add('you');
 
-        const dealerBadge = (snap.dealer === p.id) ? '<span class="dealer-btn">D</span>' : '';
-        const styleName = p.isHuman ? '' :
-          `<span class="style-tag">${(window.Poker.STYLES[p.style] || {}).name || ''}</span>`;
-
-        const cardsHtml = document.createElement('div');
-        cardsHtml.className = 'hole-cards';
-        if (p.out) {
-          // なし
-        } else if (p.isHuman || snap.reveal || this.revealAll) {
-          p.hole.forEach((c) => cardsHtml.appendChild(this.cardEl(c, true)));
-        } else if (p.folded) {
-          // 伏せたまま薄く
-          p.hole.forEach(() => cardsHtml.appendChild(this.cardBack()));
-        } else {
-          p.hole.forEach(() => cardsHtml.appendChild(this.cardBack()));
+        // アクション吹き出し（ログを見なくても状況が分かる）
+        if (p.lastAction && !p.out) {
+          const bubble = document.createElement('div');
+          bubble.className = 'bubble bubble-' + (p.lastActionType || 'info');
+          bubble.textContent = p.lastAction;
+          seat.appendChild(bubble);
         }
 
+        // アバター（顔アイコン）
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.style.background = this.avatarColor(p.id, p.isHuman);
+        avatar.textContent = this.avatarEmoji(p.id, p.isHuman);
+        if (snap.dealer === p.id) {
+          const d = document.createElement('span');
+          d.className = 'dealer-btn';
+          d.textContent = 'D';
+          avatar.appendChild(d);
+        }
+        seat.appendChild(avatar);
+
+        // 手札
+        const cardsHtml = document.createElement('div');
+        cardsHtml.className = 'hole-cards';
+        const revealed = snap.reveal || this.revealAll;
+        if (!p.out) {
+          if (p.isHuman) {
+            p.hole.forEach((c) => cardsHtml.appendChild(this.cardEl(c, true)));
+          } else if (revealed && !p.folded) {
+            p.hole.forEach((c) => cardsHtml.appendChild(this.cardEl(c)));
+          } else {
+            cardsHtml.classList.add('mini-cards');
+            p.hole.forEach(() => cardsHtml.appendChild(this.cardBack()));
+          }
+        }
+        seat.appendChild(cardsHtml);
+
+        // 名前・スタック
         const info = document.createElement('div');
         info.className = 'seat-info';
+        const styleName = p.isHuman ? '' :
+          `<span class="style-tag">${(window.Poker.STYLES[p.style] || {}).name || ''}</span>`;
         info.innerHTML =
-          `<div class="seat-name">${p.name} ${dealerBadge} ${styleName}</div>` +
-          `<div class="seat-stack">💰 ${p.stack}</div>` +
-          (p.betThisStreet > 0 ? `<div class="seat-bet">ベット ${p.betThisStreet}</div>` : '') +
-          (p.lastAction ? `<div class="seat-last">${p.lastAction}</div>` : '');
-
-        seat.appendChild(cardsHtml);
+          `<div class="seat-name">${p.name} ${styleName}</div>` +
+          `<div class="seat-stack">💰 ${p.stack}</div>`;
         seat.appendChild(info);
+
+        // ベットチップ
+        if (p.betThisStreet > 0) {
+          const chip = document.createElement('div');
+          chip.className = 'bet-chip';
+          chip.innerHTML = `<span class="chip-ico">🔴</span>${p.betThisStreet}`;
+          seat.appendChild(chip);
+        }
+
+        // 自分の現在の役（ボードと合わせた最強ハンド）
+        if (p.isHuman && !p.folded && p.hole.length === 2) {
+          const rank = this.heroHandName(p.hole, snap.board);
+          if (rank) {
+            const hr = document.createElement('div');
+            hr.className = 'hand-rank';
+            hr.textContent = rank;
+            seat.appendChild(hr);
+          }
+        }
+
         seats.appendChild(seat);
       });
+    },
+
+    // アバター用の絵文字と色
+    avatarEmoji(id, isHuman) {
+      if (isHuman) return '😎';
+      const e = ['🦊', '🐼', '🐯', '🐨', '🦁', '🐵', '🐱', '🐶'];
+      return e[(id - 1 + e.length) % e.length];
+    },
+    avatarColor(id, isHuman) {
+      if (isHuman) return 'linear-gradient(135deg,#3a86ff,#2456b3)';
+      const c = ['#b5651d', '#5a7d9a', '#7d5a9a', '#9a5a6e', '#5a9a72', '#8a8a3a', '#9a7d5a', '#6e5a9a'];
+      return c[(id - 1 + c.length) % c.length];
+    },
+
+    // 自分の現在の役名
+    heroHandName(hole, board) {
+      try {
+        const { Card, evaluate } = window.Poker;
+        const cards = [...hole, ...board].map((c) => new Card(c.rank, c.suit));
+        if (cards.length < 2) return '';
+        return evaluate(cards).name;
+      } catch (e) { return ''; }
     },
 
     // 円卓上の座席配置（CSS の絶対座標）
@@ -316,8 +395,12 @@
       // 勝率ヒント（任意）
       const eq = window.Poker.estimateEquity(player.hole, this.game.board,
         Math.max(1, this.game.playersInHand().length - 1), 150);
-      this.el('equity-hint').textContent =
-        `あなたの推定勝率: ${Math.round(eq * 100)}%　|　必要勝率(ポットオッズ): ${toCall > 0 ? Math.round(toCall / (pot + toCall) * 100) : 0}%`;
+      const made = this.heroHandName(
+        player.hole.map((c) => ({ rank: c.rank, suit: c.suit })),
+        this.game.board.map((c) => ({ rank: c.rank, suit: c.suit }))
+      );
+      this.el('equity-hint').innerHTML =
+        `<b>${made}</b>　|　推定勝率 ${Math.round(eq * 100)}%　|　必要勝率 ${toCall > 0 ? Math.round(toCall / (pot + toCall) * 100) : 0}%`;
 
       foldBtn.onclick = () => { this.hideControls(); this.game.submitAction('fold'); this.resume(); };
       checkCallBtn.onclick = () => {
@@ -339,6 +422,21 @@
 
     hideControls() {
       this.el('action-controls').classList.add('hidden');
+    },
+
+    // ===== 早送り（自分がフォールドした後） =====
+    showFastForward() {
+      const ff = this.el('ff-controls');
+      if (!ff) return;
+      ff.classList.remove('hidden');
+      this.el('btn-fastforward').onclick = () => {
+        this.fastForward = true;
+        this.hideFastForward();
+      };
+    },
+    hideFastForward() {
+      const ff = this.el('ff-controls');
+      if (ff) ff.classList.add('hidden');
     },
 
     // ===== ショーダウン =====
@@ -376,6 +474,9 @@
 
     nextHand() {
       this.el('next-hand-controls').classList.add('hidden');
+      this.hideFastForward();
+      this.fastForward = false;
+      this.humanFolded = false;
       this.revealAll = false;
       this.queue = [];
       this.animating = false;
