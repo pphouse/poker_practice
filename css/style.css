@@ -90,6 +90,9 @@ button { font-family: inherit; }
 .card.black { color: #111; }
 .card .card-rank { font-size: 18px; line-height: 1; }
 .card.large .card-rank { font-size: 24px; }
+/* 「10」など2文字ランクは少し小さく詰める */
+.card.two-char .card-rank { font-size: 14px; letter-spacing: -1px; }
+.card.large.two-char .card-rank { font-size: 19px; letter-spacing: -1px; }
 .card .card-suit { font-size: 16px; line-height: 1; }
 .card.large .card-suit { font-size: 22px; }
 .card.back { background: repeating-linear-gradient(45deg, #2a4a8a, #2a4a8a 6px, #1f3a72 6px, #1f3a72 12px); border: 2px solid #fff2; }
@@ -355,6 +358,7 @@ html, body { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
   .card { width: 26px; height: 37px; border-radius: 4px; }
   .card .card-rank { font-size: 12px; }
   .card .card-suit { font-size: 11px; }
+  .card.two-char .card-rank { font-size: 10px; letter-spacing: -.5px; }
 
   .fx-main { font-size: 30px; }
   .fx-sub { font-size: 13px; }
@@ -364,6 +368,7 @@ html, body { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
   .seat.you .avatar { width: 40px; height: 40px; font-size: 20px; }
   .seat.you .card { width: 40px; height: 56px; }
   .seat.you .card .card-rank { font-size: 19px; }
+  .seat.you .card.two-char .card-rank { font-size: 15px; letter-spacing: -1px; }
   .seat.you .card .card-suit { font-size: 17px; }
   .seat.you .seat-info { font-size: 11px; }
 
@@ -397,6 +402,7 @@ html, body { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
   /* 学習モードのトレーナーは読みやすいサイズに */
   .card.large { width: 46px; height: 64px; }
   .card.large .card-rank { font-size: 22px; }
+  .card.large.two-char .card-rank { font-size: 17px; letter-spacing: -1px; }
   .lesson-content { padding: 16px; }
   .lesson-content p { font-size: 14px; line-height: 1.7; }
   .hand-log { max-height: 120px; font-size: 12px; }

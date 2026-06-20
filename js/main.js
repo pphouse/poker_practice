@@ -72,7 +72,9 @@
     const q = rangeState.q;
     const cardsHtml = q.hole.map((c) => {
       const color = P.SUIT_COLORS[c.suit] === 'red' ? 'red' : 'black';
-      return `<div class="card large ${color}"><span class="card-rank">${c.rank}</span><span class="card-suit">${P.SUIT_SYMBOLS[c.suit]}</span></div>`;
+      const r = P.displayRank(c.rank);
+      const two = r.length > 1 ? ' two-char' : '';
+      return `<div class="card large ${color}${two}"><span class="card-rank">${r}</span><span class="card-suit">${P.SUIT_SYMBOLS[c.suit]}</span></div>`;
     }).join('');
     el('range-cards').innerHTML = cardsHtml;
     el('range-position').textContent = `ポジション: ${q.pos}`;
@@ -88,9 +90,10 @@
     if (correct) rangeState.correct++;
     const fb = el('range-feedback');
     const correctLabel = q.answer === 'open' ? 'オープン(レイズ)' : 'フォールド';
+    const codeDisp = q.code.replace(/T/g, '10');
     fb.textContent = correct
-      ? `正解！ ${q.code} は ${q.pos} で ${correctLabel}。`
-      : `不正解。${q.code}（${q.pos}）の正解は ${correctLabel} です。`;
+      ? `正解！ ${codeDisp} は ${q.pos} で ${correctLabel}。`
+      : `不正解。${codeDisp}（${q.pos}）の正解は ${correctLabel} です。`;
     fb.className = 'feedback ' + (correct ? 'good' : 'bad');
     el('range-score').textContent = `正答 ${rangeState.correct} / ${rangeState.total}`;
     setTimeout(newRangeQuestion, 1400);

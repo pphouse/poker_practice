@@ -227,7 +227,7 @@
       return { preflop: 'プリフロップ', flop: 'フロップ', turn: 'ターン', river: 'リバー' }[s] || s;
     },
     cardStr(c) {
-      return c.rank + (SUIT_SYMBOLS[c.suit] || c.suit);
+      return window.Poker.displayRank(c.rank) + (SUIT_SYMBOLS[c.suit] || c.suit);
     },
 
     // ===== テーブル描画 =====
@@ -501,7 +501,9 @@
       const d = document.createElement('div');
       d.className = 'card' + (large ? ' large' : '');
       d.classList.add(SUIT_COLORS[c.suit] === 'red' ? 'red' : 'black');
-      d.innerHTML = `<span class="card-rank">${c.rank}</span><span class="card-suit">${SUIT_SYMBOLS[c.suit]}</span>`;
+      const r = window.Poker.displayRank(c.rank);
+      if (r.length > 1) d.classList.add('two-char');
+      d.innerHTML = `<span class="card-rank">${r}</span><span class="card-suit">${SUIT_SYMBOLS[c.suit]}</span>`;
       return d;
     },
     cardBack(placeholder = false) {

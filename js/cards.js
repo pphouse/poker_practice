@@ -52,5 +52,10 @@ class Deck {
 }
 
 // グローバル公開（モジュール無しのシンプル構成）
+// 表示用: 'T' は '10' と表示する（内部表現は 'T' のまま）
+function displayRank(r) {
+  return r === 'T' ? '10' : r;
+}
+
 window.Poker = window.Poker || {};
-Object.assign(window.Poker, { Card, Deck, RANKS, SUITS, SUIT_SYMBOLS, SUIT_COLORS, RANK_VALUE });
+Object.assign(window.Poker, { Card, Deck, RANKS, SUITS, SUIT_SYMBOLS, SUIT_COLORS, RANK_VALUE, displayRank });
