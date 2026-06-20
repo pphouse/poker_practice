@@ -14,11 +14,17 @@
     speed: 750,
 
     el(id) { return document.getElementById(id); },
+    sfx(name) { const S = window.Poker.Sound; if (S) S.play(name); },
 
     // ===== ゲーム開始 =====
     startGame(config) {
       this.config = config;
       this.autoFF = !!config.autoFF;
+      this.autoNext = config.autoNext !== false;
+      this.gameEnded = false;
+      if (this.autoNextTimer) { clearTimeout(this.autoNextTimer); this.autoNextTimer = null; }
+      this.shownStack = {};
+      this._stackTw = {};
       this.fastForward = false;
       this.humanFolded = false;
       this.revealAll = false;
@@ -116,19 +122,25 @@
           this.heroPrevCat = -1;
           { const fx = this.el('fx-layer'); if (fx) fx.innerHTML = ''; }
           this.renderTable(snap);
+          this.sfx('card');
           // ブラインドのチップがポットへ
-          if (e.sb !== undefined) this.animateChips(this.seatEl(e.sb), this.potEl(), { count: 1 });
-          if (e.bb !== undefined) this.animateChips(this.seatEl(e.bb), this.potEl(), { count: 2 });
+          if (e.sb !== undefined) this.animateChips(this.seatEl(e.sb), this.potEl(), { count: 1, label: e.game.smallBlind });
+          if (e.bb !== undefined) this.animateChips(this.seatEl(e.bb), this.potEl(), { count: 2, label: e.game.bigBlind });
           this.scheduleNext(this.speed);
           break;
         case 'action': {
           const verb = this.actionLabel(e.action, e.amount);
           this.log(`${e.player.name}: ${verb}`);
           this.renderTable(snap);
-          // チップが席→ポットへ飛ぶ演出（ベット/コール/レイズ）
+          // チップが席→ポットへ飛ぶ演出（ベット/コール/レイズ）＋ 効果音
           if ((e.action === 'raise' || e.action === 'call') && e.amount > 0) {
             this.animateChips(this.seatEl(e.player.id), this.potEl(),
-              { count: e.action === 'raise' ? 4 : 2 });
+              { count: e.action === 'raise' ? 4 : 2, label: e.amount });
+            this.sfx('chip');
+          } else if (e.action === 'check') {
+            this.sfx('check');
+          } else if (e.action === 'fold') {
+            this.sfx('fold');
           }
           // 自分がフォールドしたら早送りを案内（自動なら即適用）
           if (e.player.isHuman && e.action === 'fold') {
@@ -142,6 +154,7 @@
         case 'board': {
           this.log(`【${this.streetJa(e.street)}】 ${e.board.map(this.cardStr).join(' ')}`);
           this.renderTable(snap);
+          this.sfx('card');
           // 自分の役が新しく完成したら演出（ツーペア以上）
           const hero = snap.players.find((p) => p.isHuman);
           if (hero && !hero.folded && hero.hole.length === 2) {
@@ -150,6 +163,7 @@
             if (cat > this.heroPrevCat && cat >= C.TWO_PAIR) {
               const name = window.Poker.CATEGORY_NAME_JA[cat];
               this.showHandFx(`${name}！`, '役が完成', cat);
+              this.sfx(cat >= C.FLUSH ? 'ding' : 'chip');
             }
             this.heroPrevCat = Math.max(this.heroPrevCat, cat);
           }
@@ -180,7 +194,8 @@
           this.renderTable(snap);
           {
             const count = Math.max(2, Math.min(6, Math.round(e.amount / (this.game.bigBlind * 3))));
-            this.animateChips(this.potEl(), this.seatEl(e.winner.id), { count, cls: 'win' });
+            this.animateChips(this.potEl(), this.seatEl(e.winner.id), { count, cls: 'win', label: '+' + e.amount });
+            this.sfx('coins');
           }
           this.scheduleNext(this.speed + 800, true);
           break;
@@ -284,10 +299,13 @@
         info.className = 'seat-info';
         const styleName = p.isHuman ? '' :
           `<span class="style-tag">${(window.Poker.STYLES[p.style] || {}).name || ''}</span>`;
+        const shown = (this.shownStack && this.shownStack[p.id] != null) ? this.shownStack[p.id] : p.stack;
         info.innerHTML =
           `<div class="seat-name">${p.name} ${styleName}</div>` +
-          `<div class="seat-stack">💰 ${p.stack}</div>`;
+          `<div class="seat-stack">💰 <span class="stack-val">${shown}</span></div>`;
         seat.appendChild(info);
+        const sv = info.querySelector('.stack-val');
+        if (sv) this.tweenStack(sv, p.id, p.stack);
 
         // ベットチップ
         if (p.betThisStreet > 0) {
@@ -383,7 +401,7 @@
       setTimeout(() => { layer.innerHTML = ''; }, 2000);
     },
 
-    // チップが移動する演出。fromEl→toEl へチップを飛ばす。
+    // チップが移動する演出。fromEl→toEl へ弧を描いて飛び、着地でバウンドする。
     animateChips(fromEl, toEl, opts = {}) {
       if (this.fastForward) return; // 早送り中は省略
       const layer = this.el('fx-layer');
@@ -395,8 +413,9 @@
       if (!a.width || !b.width) return;
       const fromX = a.left + a.width / 2 - t.left;
       const fromY = a.top + a.height / 2 - t.top;
-      const toX = b.left + b.width / 2 - t.left;
-      const toY = b.top + b.height / 2 - t.top;
+      const dx = b.left + b.width / 2 - t.left - fromX;
+      const dy = b.top + b.height / 2 - t.top - fromY;
+      const arc = -(36 + Math.abs(dx) * 0.12); // 放物線の高さ
       const count = Math.max(1, Math.min(6, opts.count || 3));
       for (let i = 0; i < count; i++) {
         const chip = document.createElement('div');
@@ -404,16 +423,57 @@
         chip.style.left = fromX + 'px';
         chip.style.top = fromY + 'px';
         layer.appendChild(chip);
+        const jx = Math.random() * 18 - 9;
+        const jy = Math.random() * 14 - 7;
         const delay = i * 55;
-        const jx = Math.random() * 16 - 8;
-        const jy = Math.random() * 16 - 8;
-        setTimeout(() => {
-          chip.style.transition = 'transform .5s cubic-bezier(.45,.05,.25,1), opacity .5s ease-in';
-          chip.style.transform = `translate(${toX - fromX + jx}px, ${toY - fromY + jy}px)`;
-          chip.style.opacity = '0.15';
-        }, delay + 20);
-        setTimeout(() => chip.remove(), delay + 560);
+        const anim = chip.animate([
+          { transform: 'translate(0,0) scale(1)', opacity: 1, offset: 0 },
+          { transform: `translate(${dx * 0.5 + jx * 0.5}px, ${dy * 0.5 + arc}px) scale(1.05)`, opacity: 1, offset: 0.5 },
+          { transform: `translate(${dx + jx}px, ${dy + jy - 7}px) scale(1.2)`, opacity: 1, offset: 0.8 },
+          { transform: `translate(${dx + jx}px, ${dy + jy}px) scale(.92)`, opacity: .95, offset: 0.9 },
+          { transform: `translate(${dx + jx}px, ${dy + jy - 3}px) scale(1.06)`, opacity: .9, offset: 0.96 },
+          { transform: `translate(${dx + jx}px, ${dy + jy}px) scale(1)`, opacity: .12, offset: 1 },
+        ], { duration: 640, delay, easing: 'cubic-bezier(.35,.05,.3,1)', fill: 'forwards' });
+        anim.onfinish = () => chip.remove();
+        setTimeout(() => chip.remove(), 720 + delay);
       }
+      // 金額ラベル
+      if (opts.label) {
+        const lab = document.createElement('div');
+        lab.className = 'chip-label' + (opts.cls ? ' ' + opts.cls : '');
+        lab.textContent = opts.label;
+        lab.style.left = fromX + 'px';
+        lab.style.top = fromY + 'px';
+        layer.appendChild(lab);
+        const la = lab.animate([
+          { transform: 'translate(-50%,-50%)', opacity: 0, offset: 0 },
+          { transform: 'translate(-50%,-50%) translateY(-8px)', opacity: 1, offset: 0.2 },
+          { transform: `translate(-50%,-50%) translate(${dx}px, ${dy + arc}px)`, opacity: 1, offset: 0.6 },
+          { transform: `translate(-50%,-50%) translate(${dx}px, ${dy}px)`, opacity: 0, offset: 1 },
+        ], { duration: 720, easing: 'ease-out', fill: 'forwards' });
+        la.onfinish = () => lab.remove();
+        setTimeout(() => lab.remove(), 800);
+      }
+    },
+
+    // スタックのカウントアップ/ダウン表示
+    tweenStack(el, id, to) {
+      if (!this.shownStack) this.shownStack = {};
+      if (!this._stackTw) this._stackTw = {};
+      const from = this.shownStack[id] != null ? this.shownStack[id] : to;
+      if (this._stackTw[id]) cancelAnimationFrame(this._stackTw[id]);
+      if (from === to) { el.textContent = to; this.shownStack[id] = to; return; }
+      const dur = 550, t0 = performance.now();
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / dur);
+        const e = 1 - Math.pow(1 - k, 3);
+        const val = Math.round(from + (to - from) * e);
+        el.textContent = val;
+        this.shownStack[id] = val;
+        if (k < 1) { this._stackTw[id] = requestAnimationFrame(step); }
+        else { el.textContent = to; this.shownStack[id] = to; delete this._stackTw[id]; }
+      };
+      this._stackTw[id] = requestAnimationFrame(step);
     },
 
     seatEl(id) {
@@ -597,14 +657,17 @@
           }
         }
       });
+      // 勝ち役に応じた効果音
+      this.sfx(best && best.hand && best.hand.category >= window.Poker.CATEGORY.FLUSH ? 'ding' : 'win');
       // ポット→勝者へチップが流れる演出（少し遅らせて役演出のあとに）
       const won = e.winningsById || {};
       setTimeout(() => {
         winnerIds.forEach((id) => {
           const amt = won[id] || 0;
           const count = Math.max(2, Math.min(6, Math.round(amt / (this.game.bigBlind * 3))));
-          this.animateChips(this.potEl(), this.seatEl(id), { count, cls: 'win' });
+          this.animateChips(this.potEl(), this.seatEl(id), { count, cls: 'win', label: '+' + amt });
         });
+        this.sfx('coins');
       }, 450);
     },
 
@@ -619,11 +682,22 @@
         this.el('btn-next-hand').disabled = true;
       } else {
         this.el('btn-next-hand').disabled = false;
-        this.el('btn-next-hand').textContent = '次のハンドへ ▶';
+        // 自動で次のハンドへ（演出を見せてから）
+        if (this.autoNext) {
+          this.el('btn-next-hand').textContent = '次のハンドへ ▶（自動・タップで即）';
+          if (this.autoNextTimer) clearTimeout(this.autoNextTimer);
+          this.autoNextTimer = setTimeout(() => {
+            this.autoNextTimer = null;
+            if (!this.gameEnded && !this.game.players[0].out) this.nextHand();
+          }, 2800);
+        } else {
+          this.el('btn-next-hand').textContent = '次のハンドへ ▶';
+        }
       }
     },
 
     nextHand() {
+      if (this.autoNextTimer) { clearTimeout(this.autoNextTimer); this.autoNextTimer = null; }
       this.el('next-hand-controls').classList.add('hidden');
       this.hideFastForward();
       this.fastForward = false;
@@ -635,6 +709,8 @@
     },
 
     onGameOver(e) {
+      this.gameEnded = true;
+      if (this.autoNextTimer) { clearTimeout(this.autoNextTimer); this.autoNextTimer = null; }
       this.hideControls();
       this.el('next-hand-controls').classList.add('hidden');
       const w = e.winner;
@@ -649,6 +725,7 @@
     },
 
     backToSetup() {
+      if (this.autoNextTimer) { clearTimeout(this.autoNextTimer); this.autoNextTimer = null; }
       this.el('table-area').classList.add('hidden');
       this.el('game-setup').classList.remove('hidden');
       this.el('game-over-banner').classList.add('hidden');

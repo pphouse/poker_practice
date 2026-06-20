@@ -55,11 +55,20 @@
           <input type="checkbox" id="cfg-autoff">
           自分がフォールドしたら自動で早送りする
         </label>
+        <label class="check-row">
+          <input type="checkbox" id="cfg-autonext" checked>
+          ハンド終了後、自動で次のハンドへ進む
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="cfg-sound" checked>
+          効果音を鳴らす
+        </label>
         <button id="btn-start-game" class="primary big">ゲーム開始 ▶</button>
       </div>
 
       <!-- テーブル -->
       <div id="table-area" class="hidden">
+        <button id="btn-mute" class="mute-btn" title="効果音のオン/オフ">🔊</button>
         <div id="game-over-banner" class="banner hidden"></div>
         <div class="table-wrap">
           <div class="poker-table">
@@ -159,6 +168,7 @@
   <script src="js/ai.js"></script>
   <script src="js/game.js"></script>
   <script src="js/strategy.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>

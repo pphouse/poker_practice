@@ -21,8 +21,12 @@
       const bigBlind = parseInt(el('cfg-bb').value, 10);
       const smallBlind = Math.max(1, Math.floor(bigBlind / 2));
       const autoFF = el('cfg-autoff').checked;
+      const autoNext = el('cfg-autonext').checked;
+      const sound = el('cfg-sound').checked;
+      if (window.Poker.Sound) { window.Poker.Sound.setEnabled(sound); window.Poker.Sound.resume(); }
+      updateMuteBtn();
       el('game-over-banner').classList.add('hidden');
-      UI.startGame({ opponents, startStack, smallBlind, bigBlind, autoFF });
+      UI.startGame({ opponents, startStack, smallBlind, bigBlind, autoFF, autoNext, sound });
     });
 
     el('btn-fold');
@@ -125,10 +129,25 @@
     setTimeout(newPotQuestion, 2400);
   }
 
+  // 効果音オン/オフ表示更新
+  function updateMuteBtn() {
+    const btn = el('btn-mute');
+    const S = window.Poker.Sound;
+    if (btn && S) btn.textContent = S.isEnabled() ? '🔊' : '🔇';
+  }
+
   // ===== 初期化 =====
   function init() {
     el('tab-game').addEventListener('click', () => switchMode('game'));
     el('tab-strategy').addEventListener('click', () => switchMode('strategy'));
+
+    // 効果音ミュート切替
+    el('btn-mute').addEventListener('click', () => {
+      const S = window.Poker.Sound;
+      if (!S) return;
+      S.setEnabled(!S.isEnabled());
+      updateMuteBtn();
+    });
 
     setupGameForm();
     renderLessons();
