@@ -116,12 +116,20 @@
           this.heroPrevCat = -1;
           { const fx = this.el('fx-layer'); if (fx) fx.innerHTML = ''; }
           this.renderTable(snap);
+          // ブラインドのチップがポットへ
+          if (e.sb !== undefined) this.animateChips(this.seatEl(e.sb), this.potEl(), { count: 1 });
+          if (e.bb !== undefined) this.animateChips(this.seatEl(e.bb), this.potEl(), { count: 2 });
           this.scheduleNext(this.speed);
           break;
         case 'action': {
           const verb = this.actionLabel(e.action, e.amount);
           this.log(`${e.player.name}: ${verb}`);
           this.renderTable(snap);
+          // チップが席→ポットへ飛ぶ演出（ベット/コール/レイズ）
+          if ((e.action === 'raise' || e.action === 'call') && e.amount > 0) {
+            this.animateChips(this.seatEl(e.player.id), this.potEl(),
+              { count: e.action === 'raise' ? 4 : 2 });
+          }
           // 自分がフォールドしたら早送りを案内（自動なら即適用）
           if (e.player.isHuman && e.action === 'fold') {
             this.humanFolded = true;
@@ -170,6 +178,10 @@
           this.hideFastForward();
           this.log(`${e.winner.name} がポット ${e.amount} を獲得（ショーダウンなし）`);
           this.renderTable(snap);
+          {
+            const count = Math.max(2, Math.min(6, Math.round(e.amount / (this.game.bigBlind * 3))));
+            this.animateChips(this.potEl(), this.seatEl(e.winner.id), { count, cls: 'win' });
+          }
           this.scheduleNext(this.speed + 800, true);
           break;
         case 'handComplete':
@@ -371,6 +383,46 @@
       setTimeout(() => { layer.innerHTML = ''; }, 2000);
     },
 
+    // チップが移動する演出。fromEl→toEl へチップを飛ばす。
+    animateChips(fromEl, toEl, opts = {}) {
+      if (this.fastForward) return; // 早送り中は省略
+      const layer = this.el('fx-layer');
+      const table = document.querySelector('.poker-table');
+      if (!layer || !table || !fromEl || !toEl) return;
+      const t = table.getBoundingClientRect();
+      const a = fromEl.getBoundingClientRect();
+      const b = toEl.getBoundingClientRect();
+      if (!a.width || !b.width) return;
+      const fromX = a.left + a.width / 2 - t.left;
+      const fromY = a.top + a.height / 2 - t.top;
+      const toX = b.left + b.width / 2 - t.left;
+      const toY = b.top + b.height / 2 - t.top;
+      const count = Math.max(1, Math.min(6, opts.count || 3));
+      for (let i = 0; i < count; i++) {
+        const chip = document.createElement('div');
+        chip.className = 'fly-chip' + (opts.cls ? ' ' + opts.cls : '');
+        chip.style.left = fromX + 'px';
+        chip.style.top = fromY + 'px';
+        layer.appendChild(chip);
+        const delay = i * 55;
+        const jx = Math.random() * 16 - 8;
+        const jy = Math.random() * 16 - 8;
+        setTimeout(() => {
+          chip.style.transition = 'transform .5s cubic-bezier(.45,.05,.25,1), opacity .5s ease-in';
+          chip.style.transform = `translate(${toX - fromX + jx}px, ${toY - fromY + jy}px)`;
+          chip.style.opacity = '0.15';
+        }, delay + 20);
+        setTimeout(() => chip.remove(), delay + 560);
+      }
+    },
+
+    seatEl(id) {
+      return this.el('seats').querySelector(`.seat[data-id="${id}"]`);
+    },
+    potEl() {
+      return this.el('pot-display');
+    },
+
     // 円卓上の座席配置（CSS の絶対座標）
     seatPosition(i, n) {
       // i=0(自分)を下中央に、その他を時計回りに配置
@@ -545,6 +597,15 @@
           }
         }
       });
+      // ポット→勝者へチップが流れる演出（少し遅らせて役演出のあとに）
+      const won = e.winningsById || {};
+      setTimeout(() => {
+        winnerIds.forEach((id) => {
+          const amt = won[id] || 0;
+          const count = Math.max(2, Math.min(6, Math.round(amt / (this.game.bigBlind * 3))));
+          this.animateChips(this.potEl(), this.seatEl(id), { count, cls: 'win' });
+        });
+      }, 450);
     },
 
     onHandComplete(e) {
